@@ -62,7 +62,6 @@ echo "Applying hardware-aware JSON configurations..."
 
 # Detect CPU Model and Architecture
 CPU_MODEL=$(lscpu | grep "Model name" | cut -d':' -f2 | xargs)
-NUMA_NODES=$(lscpu | grep "NUMA node(s):" | awk '{print $3}')
 LOG_FILE_PATH="$WORKER_ROOT/xmrig.log"
 
 # Default values
@@ -71,34 +70,38 @@ PRIORITY="null"
 ASM="auto"
 THREADS="-1"
 NUMA="false"
+PREFETCH=1
+WRMSR="true"
+DIFFICULTY="10000"
 
 # 🚀 Optimization for EPYC (Server)
 if [[ "$CPU_MODEL" == *"EPYC"* ]]; then
     echo "Optimization: EPYC detected. Enabling NUMA binding and multi-node optimization."
     NUMA="true"
-    YIELD="true"    # Keep true for EPYC to allow kernel housekeeping on 96 threads
-    ASM="auto"     # Let XMRig pick best EPYC implementation
-    # EPYC 7642 has 256MB L3. We use the 2MB-per-thread rule = 128 threads.
-    # Since you have 96 cores/192 threads, we let it auto-select the best 128.
-    THREADS="-1" 
+    YIELD="true"
+    ASM="auto"
+    THREADS="-1"
     DIFFICULTY="1350000"
+    WRMSR="true"
 fi
 
 # 🚀 Optimization for X3D (Desktop)
 if [[ "$CPU_MODEL" == *"X3D"* ]]; then
-    echo "Optimization: X3D detected. Applying aggressive pinning."
+    echo "Optimization: X3D detected. Restoring 'Golden' Prefetch and MSR settings."
     YIELD="false"
     PRIORITY="4"
     ASM="ryzen"
     THREADS="[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
-    PREFETCH=0
+    PREFETCH=1 
+    WRMSR="true"
+    DIFFICULTY="324000"
     JIT="false"
     INIT_AVX2=1
-    DIFFICULTY="324000"
 fi
 
 # Fallback default
-: "${DIFFICULTY:=10000}"
+: "${JIT:=false}"
+: "${INIT_AVX2:=-1}"
 
 # Combine Hostname and Difficulty
 FULL_USER="$(hostname)+${DIFFICULTY}"
@@ -112,9 +115,10 @@ jq --arg url "$P2POOL_NODE_HOSTNAME.local:$P2POOL_NODE_PORT" \
    --argjson numa "$NUMA" \
    --arg asm "$ASM" \
    --argjson rx "$THREADS" \
-   --argjson prefetch "${PREFETCH:-1}" \
-   --argjson jit "${JIT:-true}" \
-   --argjson avx2 "${INIT_AVX2:--1}" \
+   --argjson prefetch "$PREFETCH" \
+   --argjson jit "$JIT" \
+   --argjson wrmsr "$WRMSR" \
+   --argjson avx2 "$INIT_AVX2" \
    '.pools[0].url = $url | 
     .pools[0].user = $user | 
     ."log-file" = $log | 
@@ -125,6 +129,7 @@ jq --arg url "$P2POOL_NODE_HOSTNAME.local:$P2POOL_NODE_PORT" \
     ."cpu"."huge-pages-jit" = $jit |
     .randomx.numa = $numa |
     .randomx."init-avx2" = $avx2 |
+    .randomx.wrmsr = $wrmsr |
     .randomx.scratchpad_prefetch_mode = $prefetch' \
    "$TEMPLATE_CONFIG" > config.json
 
