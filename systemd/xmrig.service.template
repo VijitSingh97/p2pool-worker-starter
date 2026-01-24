@@ -1,0 +1,23 @@
+[Unit]
+Description=XMRig Miner Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+# 1. Set the CPU to performance mode before starting
+ExecStartPre=$CPUPOWER_PATH frequency-set -g performance
+
+# 2. Run XMRig directly (systemd handles the backgrounding)
+ExecStart=$BUILD_DIR/xmrig --config=$BUILD_DIR/config.json
+
+# 3. Ensure the miner knows where its config is
+WorkingDirectory=$BUILD_DIR
+
+Restart=always
+RestartSec=10
+
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
