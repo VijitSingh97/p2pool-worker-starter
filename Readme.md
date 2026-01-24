@@ -29,7 +29,7 @@ A high-performance deployment script for XMRig on Ubuntu/Debian. This isn't just
 **1\. Clone and Configure:**
 
 ``` Bash
-    git clone https://github.com/your-username/XMRig-AutoDeploy.git
+    git clone https://github.com/VijitSingh97/p2pool-worker-starter.git
     cd XMRig-AutoDeploy 
 ```
 
