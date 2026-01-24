@@ -58,17 +58,66 @@ cmake .. -DWITH_HWLOC=ON &> /dev/null
 make -j$(nproc) &> /dev/null
 
 # 5. CONFIGURATION
-echo "Applying JSON configurations..."
-# We define the full path for the log file here
+echo "Applying hardware-aware JSON configurations..."
+
+# Detect CPU Model and Architecture
+CPU_MODEL=$(lscpu | grep "Model name" | cut -d':' -f2 | xargs)
+NUMA_NODES=$(lscpu | grep "NUMA node(s):" | awk '{print $3}')
 LOG_FILE_PATH="$WORKER_ROOT/xmrig.log"
 
+# Default values
+YIELD="true"
+PRIORITY="null"
+ASM="auto"
+THREADS="-1"
+NUMA="false"
+
+# 🚀 Optimization for EPYC (Server)
+if [[ "$CPU_MODEL" == *"EPYC"* ]]; then
+    echo "Optimization: EPYC detected. Enabling NUMA binding and multi-node optimization."
+    NUMA="true"
+    YIELD="true"    # Keep true for EPYC to allow kernel housekeeping on 96 threads
+    ASM="auto"     # Let XMRig pick best EPYC implementation
+    # EPYC 7642 has 256MB L3. We use the 2MB-per-thread rule = 128 threads.
+    # Since you have 96 cores/192 threads, we let it auto-select the best 128.
+    THREADS="-1" 
+fi
+
+# 🚀 Optimization for X3D (Desktop)
+if [[ "$CPU_MODEL" == *"X3D"* ]]; then
+    echo "Optimization: X3D detected. Applying aggressive pinning."
+    YIELD="false"
+    PRIORITY="4"
+    ASM="ryzen"
+    THREADS="[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
+fi
+
+# 🚀 Optimization for Intel
+if [[ "$CPU_MODEL" == *"Intel"* ]]; then
+    ASM="intel"
+fi
+
+# Generate final config.json
 jq --arg url "$P2POOL_NODE_HOSTNAME.local:$P2POOL_NODE_PORT" \
    --arg user "$(hostname)" \
    --arg log "$LOG_FILE_PATH" \
-   '.pools[0].url = $url | .pools[0].user = $user | ."log-file" = $log' "$TEMPLATE_CONFIG" > config.json
+   --argjson yield "$YIELD" \
+   --argjson prio "$PRIORITY" \
+   --argjson numa "$NUMA" \
+   --arg asm "$ASM" \
+   --argjson rx "$THREADS" \
+   '.pools[0].url = $url | 
+    .pools[0].user = $user | 
+    ."log-file" = $log | 
+    .cpu.yield = $yield | 
+    .cpu.priority = $prio | 
+    .cpu.numa = $numa | 
+    .cpu.asm = $asm | 
+    .cpu.rx = $rx |
+    .randomx.numa = $numa' \
+   "$TEMPLATE_CONFIG" > config.json
 
 echo "Setting up log rotation to prevent disk bloat..."
-
 # Create the logrotate config file
 sudo tee /etc/logrotate.d/xmrig > /dev/null <<EOF
 $LOG_FILE_PATH {
