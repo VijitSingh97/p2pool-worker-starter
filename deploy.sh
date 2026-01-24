@@ -41,7 +41,7 @@ fi
 # 3. DEPENDENCIES
 echo "Installing dependencies (this may take a minute)..."
 sudo apt update -qq
-sudo apt install -y -qq git build-essential cmake libuv1-dev libssl-dev libhwloc-dev avahi-daemon gettext-base jq linux-tools-common linux-tools-$(uname -r) &> /dev/null
+sudo DEBIAN_FRONTEND=noninteractive apt install -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" git build-essential cmake libuv1-dev libssl-dev libhwloc-dev avahi-daemon gettext-base jq linux-tools-common linux-tools-$(uname -r)
 
 # Ensure MSR module is loaded and will load on boot
 sudo modprobe msr
@@ -81,6 +81,7 @@ if [[ "$CPU_MODEL" == *"EPYC"* ]]; then
     # EPYC 7642 has 256MB L3. We use the 2MB-per-thread rule = 128 threads.
     # Since you have 96 cores/192 threads, we let it auto-select the best 128.
     THREADS="-1" 
+    DIFFICULTY="1350000"
 fi
 
 # 🚀 Optimization for X3D (Desktop)
@@ -90,31 +91,41 @@ if [[ "$CPU_MODEL" == *"X3D"* ]]; then
     PRIORITY="4"
     ASM="ryzen"
     THREADS="[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
+    PREFETCH=0
+    JIT="false"
+    INIT_AVX2=1
+    DIFFICULTY="324000"
 fi
 
-# 🚀 Optimization for Intel
-if [[ "$CPU_MODEL" == *"Intel"* ]]; then
-    ASM="intel"
-fi
+# Fallback default
+: "${DIFFICULTY:=10000}"
+
+# Combine Hostname and Difficulty
+FULL_USER="$(hostname)+${DIFFICULTY}"
 
 # Generate final config.json
 jq --arg url "$P2POOL_NODE_HOSTNAME.local:$P2POOL_NODE_PORT" \
-   --arg user "$(hostname)" \
+   --arg user "$FULL_USER" \
    --arg log "$LOG_FILE_PATH" \
    --argjson yield "$YIELD" \
    --argjson prio "$PRIORITY" \
    --argjson numa "$NUMA" \
    --arg asm "$ASM" \
    --argjson rx "$THREADS" \
+   --argjson prefetch "${PREFETCH:-1}" \
+   --argjson jit "${JIT:-true}" \
+   --argjson avx2 "${INIT_AVX2:--1}" \
    '.pools[0].url = $url | 
     .pools[0].user = $user | 
     ."log-file" = $log | 
     .cpu.yield = $yield | 
     .cpu.priority = $prio | 
-    .cpu.numa = $numa | 
     .cpu.asm = $asm | 
     .cpu.rx = $rx |
-    .randomx.numa = $numa' \
+    ."cpu"."huge-pages-jit" = $jit |
+    .randomx.numa = $numa |
+    .randomx."init-avx2" = $avx2 |
+    .randomx.scratchpad_prefetch_mode = $prefetch' \
    "$TEMPLATE_CONFIG" > config.json
 
 echo "Setting up log rotation to prevent disk bloat..."

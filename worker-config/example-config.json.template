@@ -3,11 +3,13 @@
     "cpu": {
         "enabled": true,
         "huge-pages": true,
-        "huge-pages-jit": true,
+        "huge-pages-jit": false,
         "hwloc": true,
         "memory-pool": true,
-        "yield": true,
-        "rx": -1
+        "yield": false,
+        "priority": 4,
+        "asm": "ryzen",
+        "rx": null
     },
     "randomx": {
         "init": -1,

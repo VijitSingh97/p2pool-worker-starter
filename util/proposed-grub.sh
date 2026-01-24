@@ -19,11 +19,11 @@ TWO_MB_COUNT=$((128 + THREADS + 10))
 
 # 4. Check for 1GB support
 if grep -q "pdpe1gb" /proc/cpuinfo; then
-    NEW_GRUB="quiet splash hugepagesz=1G hugepages=$GB_PAGES hugepagesz=2M hugepages=$TWO_MB_COUNT default_hugepagesz=2M"
+    NEW_GRUB="quiet splash hugepagesz=1G hugepages=$GB_PAGES hugepagesz=2M hugepages=$TWO_MB_COUNT default_hugepagesz=2M msr.allow_writes=on"
 else
     # Fallback: All 2MB pages (1168 baseline per socket + threads)
     TOTAL_2M=$(((1168 * SOCKETS) + THREADS + 10))
-    NEW_GRUB="quiet splash default_hugepagesz=2M hugepages=$TOTAL_2M"
+    NEW_GRUB="quiet splash default_hugepagesz=2M hugepages=$TOTAL_2M msr.allow_writes=on"
 fi
 
 # 5. Output
