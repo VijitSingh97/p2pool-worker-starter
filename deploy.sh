@@ -41,7 +41,7 @@ fi
 # 3. DEPENDENCIES
 echo "Installing dependencies (this may take a minute)..."
 sudo apt update -qq
-sudo apt install -y -qq git build-essential cmake libuv1-dev libssl-dev libhwloc-dev avahi-daemon cpupower gettext-base jq &> /dev/null
+sudo apt install -y -qq git build-essential cmake libuv1-dev libssl-dev libhwloc-dev avahi-daemon gettext-base jq linux-tools-common linux-tools-$(uname -r) &> /dev/null
 
 # Ensure MSR module is loaded and will load on boot
 sudo modprobe msr

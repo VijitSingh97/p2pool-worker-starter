@@ -30,7 +30,7 @@ A high-performance deployment script for XMRig on Ubuntu/Debian. This isn't just
 
 ``` Bash
     git clone https://github.com/VijitSingh97/p2pool-worker-starter.git
-    cd XMRig-AutoDeploy 
+    cd p2pool-worker-starter
 ```
 
 Edit **configuration.json** with your P2Pool node details.
@@ -39,6 +39,7 @@ Edit **configuration.json** with your P2Pool node details.
 
 ```Bash
     chmod +x deploy.sh
+    chmod +x util/proposed-grub.sh 
     sudo ./deploy.sh   
 ```
 
