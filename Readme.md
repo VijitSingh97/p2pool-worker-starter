@@ -1,3 +1,9 @@
+> **Archived project:** This repository is no longer maintained. Use
+> [RigForge](https://github.com/p2pool-starter-stack/rigforge) for maintained XMRig
+> provisioning and tuning. The original code and documentation are preserved for reference.
+
+---
+
 **XMRig-AutoDeploy 🚀**
 
 A high-performance deployment script for XMRig on Ubuntu/Debian. This isn't just a basic installer; it's a **hardware-aware optimizer** that tunes your Linux kernel for maximum Monero mining efficiency.
